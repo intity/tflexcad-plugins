@@ -1,5 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using TFlex.Model;
 using TFlex.Model.Model2D;
@@ -10,37 +10,29 @@ namespace TFlex
     {
         public static void Run()
         {
-            var nodes = new List<IntersectionNode>();
-            
             var document = Application.ActiveDocument;
             if (document == null)
                 return;
 
-            document.BeginChanges(string.Format("SerifsBuilder"));
+            document.BeginChanges("SerifsBuilder");
 
             foreach (var obj in document.Selection.GetAllObjects())
             {
                 if (obj.GroupType != ObjectType.Dimension)
                     continue;
 
-                var dimension = obj as LinearDimension;
-                if (dimension == null)
+                if (!(obj is LinearDimension dimension))
                     continue;
 
-                var node1 = dimension.LinkedStart.Node as IntersectionNode;
-                var node2 = dimension.LinkedEnd.Node as IntersectionNode;
+                if (dimension.LinkedStart.Node is IntersectionNode node1)
+                {
+                    CreateSerifs(document, node1);
+                }
 
-                if (node1 == null || node2 == null)
-                    continue;
-
-                if (nodes.Contains(node1) || nodes.Contains(node2))
-                    continue;
-
-                CreateSerifs(document, node1);
-                CreateSerifs(document, node2);
-
-                nodes.Add(node1);
-                nodes.Add(node2);
+                if (dimension.LinkedEnd.Node is IntersectionNode node2)
+                {
+                    CreateSerifs(document, node2);
+                }
             }
 
             document.EndChanges();
@@ -53,11 +45,11 @@ namespace TFlex
 
             foreach (var parent in construction.Parents)
             {
-                var node = parent.Object as ObjectNode;
-                if (node == null)
+                if (!(parent.Object is ObjectNode node))
                     continue;
 
-                var distance = inode.GetDistance(node.Coordinates);
+                double distance = inode.GetDistance(node.Coordinates);
+
                 if (flag > 0)
                 {
                     if (distance > r)
@@ -99,15 +91,27 @@ namespace TFlex
 
         private static void CreateSerifs(Document document, IntersectionNode node)
         {
-            var page = node.Page;
             var on_1 = GetNode(node, node.Construction1, 0);
             var on_2 = GetNode(node, node.Construction2, 0);
+
+            if (on_1 == null || on_2 == null)
+                return;
+
+            var nodes = document.GetNodes().Where(i => i.SubType == NodeType.BetweenNode);
+
+            foreach (var i in nodes)
+            {
+                foreach (var j in i.Parents)
+                {
+                    if (j.Object.Equals(on_1) || j.Object.Equals(on_2))
+                    {
+                        return;
+                    }
+                }
+            }
+
+            var page = node.Page;
             var bn_1 = new BetweenNode(document, on_1, on_2, 0.5) { Page = page };
-
-            document.ApplyChanges();
-
-            var circle = new CircleConstruction(document) { Page = page };
-            circle.SetCenterAndNode(node, bn_1);
 
             document.ApplyChanges();
 
@@ -120,18 +124,15 @@ namespace TFlex
 
             var fn_1 = new FreeNode(document, v1.X, v1.Y) { Page = page };
             var fn_2 = new FreeNode(document, v2.X, v2.Y) { Page = page };
-            //
-            //var fn_1 = new IntersectionNode(document, node.Construction1, circle, v1.X, v1.Y) { Page = page };
-            //var fn_2 = new IntersectionNode(document, node.Construction2, circle, v2.X, v2.Y) { Page = page };
-            //
+
             document.ApplyChanges();
 
-            var outline1 = new ConstructionOutline(document, on_1, fn_1)
+            _ = new ConstructionOutline(document, on_1, fn_1)
             {
                 Page = page,
                 Style = OutlineStyle.Thin
             };
-            var outline2 = new ConstructionOutline(document, on_2, fn_2)
+            _ = new ConstructionOutline(document, on_2, fn_2)
             {
                 Page = page,
                 Style = OutlineStyle.Thin
