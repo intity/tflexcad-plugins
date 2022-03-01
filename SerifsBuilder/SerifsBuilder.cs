@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Windows;
+﻿using System.Windows;
 using TFlex.Model;
 using TFlex.Model.Model2D;
 
@@ -41,7 +39,7 @@ namespace TFlex
         private static ObjectNode GetNode(IntersectionNode inode, Construction construction, int flag)
         {
             double r = 0.0;
-            var nodes = new Dictionary<double, ObjectNode>();
+            ObjectNode targetNode = null;
 
             foreach (var parent in construction.Parents)
             {
@@ -55,6 +53,7 @@ namespace TFlex
                     if (distance > r)
                     {
                         r = distance; // max
+                        targetNode = node;
                     }
                 }
                 else
@@ -62,31 +61,22 @@ namespace TFlex
                     if (distance < r || r == 0.0)
                     {
                         r = distance; // min
+                        targetNode = r > 0.0 ? node : null;
                     }
-                }
-
-                if (nodes.ContainsKey(r) == false)
-                {
-                    nodes.Add(r, node);
                 }
             }
 
-            return nodes.Count > 0 && r > 0.0 ? nodes[r] : null;
+            return targetNode;
         }
 
         private static Vector GetVector(IntersectionNode inode, ObjectNode onode, double radius)
         {
             Vector v1 = new Vector(inode.AbsX, inode.AbsY);
             Vector v2 = new Vector(onode.AbsX, onode.AbsY);
-            _ = new Vector();
             Vector v3 = Vector.Subtract(v1, v2);
-            double r1 = (radius / v3.Length);
-            _ = new Vector();
+            double r1 = radius / v3.Length;
             Vector v4 = Vector.Multiply(r1, v3);
-            _ = new Vector();
-            Vector v5 = (v1 + v4);
-
-            return v5;
+            return v1 + v4;
         }
 
         private static void CreateSerifs(Document document, IntersectionNode node)
@@ -97,13 +87,14 @@ namespace TFlex
             if (on_1 == null || on_2 == null)
                 return;
 
-            var nodes = document.GetNodes().Where(i => i.SubType == NodeType.BetweenNode);
-
-            foreach (var i in nodes)
+            foreach (Node item in document.GetNodes())
             {
-                foreach (var j in i.Parents)
+                if (item.SubType != NodeType.BetweenNode)
+                    continue;
+
+                foreach (var p in item.Parents)
                 {
-                    if (j.Object.Equals(on_1) || j.Object.Equals(on_2))
+                    if (p.Object.Equals(on_1) || p.Object.Equals(on_2))
                     {
                         return;
                     }
@@ -115,9 +106,8 @@ namespace TFlex
 
             document.ApplyChanges();
 
-            var scale = 1 / page.Scale.Value;
-            var point = new TFlex.Drawing.Point(bn_1.AbsX * page.Scale.Value, bn_1.AbsY * page.Scale.Value);
-            double radius = node.GetDistance(point) * scale;
+            var point = new Drawing.Point(bn_1.AbsX * page.Scale.Value, bn_1.AbsY * page.Scale.Value);
+            double radius = node.GetDistance(point) * (1 / page.Scale.Value);
 
             Vector v1 = GetVector(node, on_1, radius);
             Vector v2 = GetVector(node, on_2, radius);
@@ -137,6 +127,8 @@ namespace TFlex
                 Page = page,
                 Style = OutlineStyle.Thin
             };
+
+            document.ApplyChanges();
         }
     }
 }
