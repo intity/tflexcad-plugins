@@ -102,12 +102,11 @@ namespace TFlex
             }
 
             var page = node.Page;
-            var bn_1 = new BetweenNode(document, on_1, on_2, 0.5) { Page = page };
+            _ = new BetweenNode(document, on_1, on_2, 0.5) { Page = page };
 
             document.ApplyChanges();
 
-            var point = new Drawing.Point(bn_1.AbsX * page.Scale.Value, bn_1.AbsY * page.Scale.Value);
-            double radius = node.GetDistance(point) * (1 / page.Scale.Value);
+            double radius = 9 * (1 / page.Scale.Value);
 
             Vector v1 = GetVector(node, on_1, radius);
             Vector v2 = GetVector(node, on_2, radius);
